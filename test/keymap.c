@@ -42,6 +42,7 @@ static bool gaming_layer_active=false;
 #define CC_X LT(0, KC_X)
 #define CC_Y LT(0, KC_Y)
 #define CC_Z LT(0, KC_Z)
+#define TH_HM_END LT(0, KC_F24)
 
 // clang-format off
 enum layers{
@@ -65,7 +66,6 @@ enum custom_keycodes {
   MACRO_7,              // ctrl + alt + plus (jump to end)
   MACRO_8,              // ctrl + shift + plus (jump to and select word (target mode))
   MACRO_9,              // ctrl + alt + shift + plus (jump to declaration)
-  CK_HM_END,            // Home / End
   CK_STUCK,             // Remove all modifiers (shift, alt, win, ctrl) to prevent stuck modifiers
 };
 
@@ -92,6 +92,15 @@ bool controlify_on_hold(uint16_t keycode, keyrecord_t *record) {
   return true; // Return true for normal processing of tap keycode
 }
 
+bool tap_or_hold(uint16_t keycode_tap, uint16_t keycode_hold, keyrecord_t *record) {
+    if (record->tap.count && record->event.pressed) {
+        tap_code16(keycode_tap); // Intercept tap function to send [keycode_tap]
+    } else if (record->event.pressed) {
+        tap_code16(keycode_hold); // Intercept hold function to send [keycode_hold]
+    }
+    return false;
+}
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   switch (keycode) {
     // --------------------------- CTRL + <KEY> on Hold -----------------------------------------------------
@@ -111,27 +120,10 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
       return controlify_on_hold(KC_Y, record);
     case LT(0, KC_Z):
       return controlify_on_hold(KC_Z, record);
-    // --------------------------- ??? -----------------------------------------------------
-    // case LT(0, KC_W):
-    //   if (!record->tap.count && record->event.pressed) {
-    //     tap_code16(C(KC_LEFT));
-    //     tap_code16(C(S(KC_RIGHT)));
-    //     return false;
-    //   }
-    //   return true; // Return true for normal processing of tap keycode
-    case (CK_HM_END):
-      if (record->event.pressed) {
-        if (get_mods() & MOD_MASK_ALT) {
-          unregister_mods(MOD_BIT(KC_LALT));
-          tap_code16(KC_END);
-          register_mods(MOD_BIT(KC_LALT));
-        } else {
-          register_code16(KC_HOME);
-        }
-      } else {
-        unregister_code16(KC_HOME);
-      }
-      return false;
+    // --------------------------- Tap / Hold -----------------------------------------------------
+    case LT(0, KC_F24):
+      return tap_or_hold(KC_HOME, KC_END, record);
+    // --------------------------- Specials -----------------------------------------------------
     case (CK_STUCK):
       del_mods(MOD_MASK_CSAG); //remove all modifiers to prevent stuck layers
       return false;
@@ -317,12 +309,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______,  _______,  _______,                                KC_P0  ,                                _______,  _______,  _______,  _______,  _______,  _______,  _______),
 
 [RIGHT_HOLD_FUNCTION] = LAYOUT_tkl_iso(
-    KC_ESC ,  XXXXXXX,   XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  XXXXXXX,   XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  XXXXXXX,   XXXXXXX,  KC_UP  ,  XXXXXXX,  KC_PGUP,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  CK_HM_END, KC_LEFT,  KC_DOWN,  KC_RIGHT, KC_PGDN,  XXXXXXX,  KC_LCTL,  KC_LALT,  KC_LGUI,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
-    _______,  XXXXXXX,   XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            _______,            XXXXXXX,
-    _______,  _______,   _______,                                KC_LSFT,                                _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX),
+    XXXXXXX,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
+    KC_ESC ,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  XXXXXXX  ,  KC_TAB ,  KC_UP  ,  XXXXXXX,  KC_PGUP,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  TH_HM_END,  KC_LEFT,  KC_DOWN,  KC_RIGHT, KC_PGDN,  XXXXXXX,  KC_LCTL,  KC_LALT,  KC_LGUI,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
+    _______,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  KC_DEL ,  KC_BSPC,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            _______,            XXXXXXX,
+    _______,  _______  ,  _______,                                KC_LSFT,                                _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX),
 
 [KEYCHRON_FUNCTION] = LAYOUT_tkl_iso(
     _______,  KC_BRID,  KC_BRIU,  KC_TASK,  KC_FILE,  RGB_VAD,  RGB_VAI,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,  KC_VOLU,            _______,  _______,  FN_GAME,
