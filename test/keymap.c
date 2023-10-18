@@ -23,6 +23,8 @@ static bool gaming_layer_active=false;
  *  Or you can use XXXXXXX for KC_NO (NOOP)                  *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+// DEFINITIONS: Shorten long "key"-names
+// Layer switches
 #define FN_BACK TO(DEFAULT)
 #define FN_GAME TO(GAMING)
 #define FN_KCR MO(KEYCHRON_FUNCTION)
@@ -31,17 +33,20 @@ static bool gaming_layer_active=false;
 #define FN_SPACE LT(SPACE_FUNCTION, KC_SPC)
 #define FN_MOUSE TG(MOUSE)
 
-#define CC_A LT(0, KC_A)
+// CC_<KEYNAME>: [C]trl-[C]ode, for keys that have ctrl activated on hold
+// LT() is used to switch layers on hold, but used on layer 0 it does not switch a layer, but provides tap/hold logic
+// see: https://docs.qmk.fm/#/mod_tap?id=changing-hold-function
 #define CC_C LT(0, KC_C)
 #define CC_D LT(0, KC_D)
 #define CC_F LT(0, KC_F)
 #define CC_H LT(0, KC_H)
-#define CC_S LT(0, KC_S)
 #define CC_V LT(0, KC_V)
-#define CC_W LT(0, KC_W)
 #define CC_X LT(0, KC_X)
 #define CC_Y LT(0, KC_Y)
 #define CC_Z LT(0, KC_Z)
+
+// TH_<KEYNAME>: [T]ap-[H]old, for keys that have a tap and a hold action
+// Tap/hold logic works only on basic keycodes (https://docs.qmk.fm/#/keycodes_basic)
 #define TH_HM_END LT(0, KC_F24)
 
 // clang-format off
@@ -84,6 +89,8 @@ uint32_t change_led_effect_heatmap_callback(uint32_t trigger_time, void *cb_arg)
     return 0;
 }
 
+// Used in process_record_user() to provide ctrl+<key> on hold, <key> on tap
+// Tap/hold logic works only on basic keycodes (https://docs.qmk.fm/#/keycodes_basic)
 bool controlify_on_hold(uint16_t keycode, keyrecord_t *record) {
   if (!record->tap.count && record->event.pressed) {
       tap_code16(C(keycode)); // Intercept hold function to send Ctrl+<KEYCODE>. Other modifiers (Shift, Alt) are applied
@@ -92,6 +99,8 @@ bool controlify_on_hold(uint16_t keycode, keyrecord_t *record) {
   return true; // Return true for normal processing of tap keycode
 }
 
+// Used in process_record_user() to provide <key1> on tap, <key2> on hold.
+// Tap/hold logic works only on basic keycodes (https://docs.qmk.fm/#/keycodes_basic)
 bool tap_or_hold(uint16_t keycode_tap, uint16_t keycode_hold, keyrecord_t *record) {
     if (record->tap.count && record->event.pressed) {
         tap_code16(keycode_tap); // Intercept tap function to send [keycode_tap]
@@ -101,6 +110,8 @@ bool tap_or_hold(uint16_t keycode_tap, uint16_t keycode_hold, keyrecord_t *recor
     return false;
 }
 
+
+// Handles key presses
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   switch (keycode) {
     // --------------------------- CTRL + <KEY> on Hold -----------------------------------------------------
@@ -127,7 +138,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     case (CK_STUCK):
       del_mods(MOD_MASK_CSAG); //remove all modifiers to prevent stuck layers
       return false;
-
     // --------------------------- MACROS -----------------------------------------------------
     case MACRO_0:
       if (record->event.pressed) {
@@ -283,11 +293,22 @@ void keyboard_post_init_user(void) {
   defer_exec(1000, change_led_effect_heatmap_callback, NULL);
 }
 
+// Set tapping term per key (https://docs.qmk.fm/#/tap_hold?id=tapping-term)
+// A key counts as HOLD if held longer than TAPPING_TERM, as TAP if shorter
+uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
+  switch (keycode) {
+    case FN_LEFT:
+        return TAPPING_TERM + 100;
+    default:
+        return TAPPING_TERM;
+  }
+}
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [DEFAULT] = LAYOUT_tkl_iso(
     KC_ESC,   KC_F1,   KC_F2,    KC_F3,    KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9,    KC_F10,   KC_F11,   KC_F12,             KC_PSCR,   XXXXXXX,  CK_STUCK,
     KC_GRV,   KC_1,    KC_2,     KC_3,     KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9,     KC_0,     KC_MINS,  KC_EQL,   KC_BSPC,  XXXXXXX,   KC_HOME,  KC_PGUP,
-    KC_TAB,   KC_Q,    CC_W,     KC_E,     KC_R,     KC_T,     CC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,            KC_DEL,    KC_END,   KC_PGDN,
+    KC_TAB,   KC_Q,    KC_W,     KC_E,     KC_R,     KC_T,     CC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,            KC_DEL,    KC_END,   KC_PGDN,
     FN_MOUSE, FN_LEFT, KC_S,     CC_D,     CC_F,     KC_G,     CC_H,     KC_J,     KC_K,     KC_L,     FN_RIGHT, KC_QUOT,  KC_NUHS,  KC_ENT,
     KC_LSFT,  KC_NUBS, CC_Z,     CC_X,     CC_C,     CC_V,     KC_B,     KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,            KC_RSFT,             KC_UP,
     KC_LCTL,  KC_LGUI, KC_LALT,                                FN_SPACE,                               KC_RALT,  KC_RGUI,  FN_KCR ,   KC_RCTL,  KC_LEFT,   KC_DOWN,  KC_RGHT),
@@ -301,18 +322,18 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______,  _______,  _______,                                _______,                                _______,  _______,  _______,  _______,  _______,  _______,  _______),
 
 [LEFT_HOLD_FUNCTION] = LAYOUT_tkl_iso(
-    _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,            _______,  _______,  _______,
-    _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,
-    _______,  _______,  _______,  KC_PAST,  KC_PSLS,  _______,  _______,  KC_P4  ,  KC_P5  ,  KC_P6  ,  _______,  _______,  _______,            _______,  _______,  _______,
-    _______,  _______,  _______,  KC_PPLS,  KC_PMNS,  _______,  _______,  KC_P1  ,  KC_P2  ,  KC_P3  ,  _______,  _______,  _______,  _______,
-    _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  KC_P7  ,  KC_P8  ,  KC_P9  ,  _______,            _______,            _______,
-    _______,  _______,  _______,                                KC_P0  ,                                _______,  _______,  _______,  _______,  _______,  _______,  _______),
+    KC_ESC ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_PAST,  KC_PSLS,  XXXXXXX,  XXXXXXX,  KC_P4  ,  KC_P5  ,  KC_P6  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  _______,  XXXXXXX,  KC_PPLS,  KC_PMNS,  XXXXXXX,  XXXXXXX,  KC_P1  ,  KC_P2  ,  KC_P3  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
+    _______,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_P7  ,  KC_P8  ,  KC_P9  ,  XXXXXXX,            XXXXXXX,            XXXXXXX,
+    _______,  _______,  _______,                                KC_P0  ,                                _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX),
 
 [RIGHT_HOLD_FUNCTION] = LAYOUT_tkl_iso(
-    XXXXXXX,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
-    KC_ESC ,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  XXXXXXX  ,  KC_TAB ,  KC_UP  ,  XXXXXXX,  KC_PGUP,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  TH_HM_END,  KC_LEFT,  KC_DOWN,  KC_RIGHT, KC_PGDN,  XXXXXXX,  KC_LCTL,  KC_LALT,  KC_LGUI,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
+    KC_ESC ,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  KC_ESC   ,  KC_TAB ,  KC_UP  ,  XXXXXXX,  KC_PGUP,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  TH_HM_END,  KC_LEFT,  KC_DOWN,  KC_RIGHT, KC_PGDN,  XXXXXXX,  KC_LCTL,  KC_LALT,  KC_LGUI,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX,
     _______,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  KC_DEL ,  KC_BSPC,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            _______,            XXXXXXX,
     _______,  _______  ,  _______,                                KC_LSFT,                                _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX),
 
