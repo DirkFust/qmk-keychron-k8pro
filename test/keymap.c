@@ -231,7 +231,8 @@ layer_state_t layer_state_set_user(layer_state_t state) {
       rgb_matrix_mode(RGB_MATRIX_TYPING_HEATMAP);
       break;
     case GAMING_LAYER:
-      rgb_matrix_mode(RGB_MATRIX_TYPING_HEATMAP);
+      //rgb_matrix_mode(RGB_MATRIX_TYPING_HEATMAP);
+      rgb_matrix_mode(RGB_MATRIX_CUSTOM_custom_gaming);
       break;
     default:
       rgb_matrix_mode(RGB_MATRIX_CYCLE_LEFT_RIGHT);
