@@ -15,8 +15,7 @@
  */
 
 #include QMK_KEYBOARD_H
-extern void rgb_matrix_update_pwm_buffers(void);
-static bool gaming_layer_active=false;
+static uint8_t current_layer = 0;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  *  You can use _______ in place for KC_TRANS (transparent)   *
@@ -26,7 +25,7 @@ static bool gaming_layer_active=false;
 // DEFINITIONS: Shorten long "key"-names
 // Layer switches
 #define FN_BACK TO(DEFAULT)
-#define FN_GAME TO(GAMING)
+#define FN_GAME TO(GAMING_LAYER)
 #define FN_KCR MO(KEYCHRON_FUNCTION)
 #define FN_LEFT LT(LEFT_HOLD_FUNCTION, KC_A)
 #define FN_RIGHT LT(RIGHT_HOLD_FUNCTION, KC_SCLN)
@@ -44,6 +43,7 @@ static bool gaming_layer_active=false;
 #define CC_X LT(0, KC_X)
 #define CC_Y LT(0, KC_Y)
 #define CC_Z LT(0, KC_Z)
+#define CC_NUHS LT(0, KC_NUHS)
 
 // TH_<KEYNAME>: [T]ap-[H]old, for keys that have a tap and a hold action
 // Tap/hold logic works only on basic keycodes (https://docs.qmk.fm/#/keycodes_basic)
@@ -57,7 +57,7 @@ enum layers{
   RIGHT_HOLD_FUNCTION,
   KEYCHRON_FUNCTION,
   MOUSE,
-  GAMING
+  GAMING_LAYER
 };
 
 enum custom_keycodes {
@@ -115,28 +115,30 @@ bool tap_or_hold(uint16_t keycode_tap, uint16_t keycode_hold, keyrecord_t *recor
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   switch (keycode) {
     // --------------------------- CTRL + <KEY> on Hold -----------------------------------------------------
-    case LT(0, KC_C):
+    case CC_C:
       return controlify_on_hold(KC_C, record);
-    case LT(0, KC_D):
+    case CC_D:
       return controlify_on_hold(KC_D, record);
-    case LT(0, KC_F):
+    case CC_F:
       return controlify_on_hold(KC_F, record);
-    case LT(0, KC_H):
+    case CC_H:
       return controlify_on_hold(KC_H, record);
-    case LT(0, KC_V):
+    case CC_V:
       return controlify_on_hold(KC_V, record);
-    case LT(0, KC_X):
+    case CC_X:
       return controlify_on_hold(KC_X, record);
-    case LT(0, KC_Y):
+    case CC_Y:
       return controlify_on_hold(KC_Y, record);
-    case LT(0, KC_Z):
+    case CC_Z:
       return controlify_on_hold(KC_Z, record);
+    case CC_NUHS:
+      return controlify_on_hold(KC_NUHS, record);
     // --------------------------- Tap / Hold -----------------------------------------------------
     case LT(0, KC_F24):
       return tap_or_hold(KC_HOME, KC_END, record);
     // --------------------------- Specials -----------------------------------------------------
     case (CK_STUCK):
-      del_mods(MOD_MASK_CSAG); //remove all modifiers to prevent stuck layers
+      del_mods(MOD_MASK_CSAG); //remove all modifiers to prevent stuck modifiers
       return false;
     // --------------------------- MACROS -----------------------------------------------------
     case MACRO_0:
@@ -196,48 +198,45 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
 
 layer_state_t layer_state_set_user(layer_state_t state) {
-    static bool right_hold_layer_active;
+  uint8_t new_layer = get_highest_layer(state);
 
-    if (right_hold_layer_active) {
-      // if we are here and right_hold_layer_active was set, we know we came from this layer
-      right_hold_layer_active = false;
-      clear_mods(); //remove all modifiers to prevent stuck layers
-    }
-    gaming_layer_active = false;
+  if (current_layer == RIGHT_HOLD_FUNCTION) {
+    // if layer changed and the previous layer was RIGHT_HOLD_FUNCTION...
+    clear_mods(); //...remove all modifiers to prevent stuck modifiers from RIGHT_HOLD_FUNCTION layer
+  }
+  current_layer = new_layer;
 
-    switch (get_highest_layer(state)) {
-      case RIGHT_HOLD_FUNCTION:
-        right_hold_layer_active = true;
-        rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
-        rgb_matrix_sethsv(HSV_GREEN);
-        break;
-      case LEFT_HOLD_FUNCTION:
-        rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
-        rgb_matrix_sethsv(HSV_BLUE);
-        break;
-      case SPACE_FUNCTION:
-        rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
-        rgb_matrix_sethsv(HSV_TURQUOISE);
-        break;
-      case MOUSE:
-        rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
-        rgb_matrix_sethsv(HSV_RED);
-        break;
-      case KEYCHRON_FUNCTION:
-        rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
-        rgb_matrix_sethsv(HSV_MAGENTA);
-        break;
-      case DEFAULT:
-        rgb_matrix_mode(RGB_MATRIX_TYPING_HEATMAP);
-        break;
-      case GAMING:
-        gaming_layer_active = true;
-        rgb_matrix_mode(RGB_MATRIX_TYPING_HEATMAP);
-        break;
-      default:
-        rgb_matrix_mode(RGB_MATRIX_CYCLE_LEFT_RIGHT);
-        break;
-    }
+  switch (new_layer) {
+    case RIGHT_HOLD_FUNCTION:
+      rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
+      rgb_matrix_sethsv(HSV_GREEN);
+      break;
+    case LEFT_HOLD_FUNCTION:
+      rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
+      rgb_matrix_sethsv(HSV_BLUE);
+      break;
+    case SPACE_FUNCTION:
+      rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
+      rgb_matrix_sethsv(HSV_TURQUOISE);
+      break;
+    case MOUSE:
+      rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
+      rgb_matrix_sethsv(HSV_RED);
+      break;
+    case KEYCHRON_FUNCTION:
+      rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
+      rgb_matrix_sethsv(HSV_MAGENTA);
+      break;
+    case DEFAULT:
+      rgb_matrix_mode(RGB_MATRIX_TYPING_HEATMAP);
+      break;
+    case GAMING_LAYER:
+      rgb_matrix_mode(RGB_MATRIX_TYPING_HEATMAP);
+      break;
+    default:
+      rgb_matrix_mode(RGB_MATRIX_CYCLE_LEFT_RIGHT);
+      break;
+  }
 
   return state;
 }
@@ -245,33 +244,33 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 
 // Feature Caps Words, see https://docs.qmk.fm/#/feature_caps_word
 bool caps_word_press_user(uint16_t keycode) {
-    switch (keycode) {
-        // Keycodes that continue Caps Word, with shift applied.
-        case KC_A ... KC_Z:
-        case KC_MINS:
-        case KC_SLSH: // -_ from german keyboard layout
-        case KC_LBRC: // ü from german keyboard layout
-        case KC_SCLN: // ö from german keyboard layout
-        case KC_QUOT: // ä from german keyboard layout
-            add_weak_mods(MOD_BIT(KC_LSFT));  // Apply shift to next key.
-            return true;
+  switch (keycode) {
+    // Keycodes that continue Caps Word, with shift applied.
+    case KC_A ... KC_Z:
+    case KC_MINS:
+    case KC_SLSH: // -_ from german keyboard layout
+    case KC_LBRC: // ü from german keyboard layout
+    case KC_SCLN: // ö from german keyboard layout
+    case KC_QUOT: // ä from german keyboard layout
+      add_weak_mods(MOD_BIT(KC_LSFT));  // Apply shift to next key.
+      return true;
 
-        // Keycodes that continue Caps Word, without shifting.
-        case KC_1 ... KC_0:
-        case KC_BSPC:
-        case KC_DEL:
-        case KC_UNDS:
-            return true;
+    // Keycodes that continue Caps Word, without shifting.
+    case KC_1 ... KC_0:
+    case KC_BSPC:
+    case KC_DEL:
+    case KC_UNDS:
+      return true;
 
-        default:
-            return false;  // Deactivate Caps Word.
-    }
+    default:
+      return false;  // Deactivate Caps Word.
+  }
 }
 
 // set caps-lock LED depending on layers
 // https://docs.qmk.fm/#/feature_led_indicators?id=led-indicators
 bool led_update_user(led_t led_state) {
-  if (gaming_layer_active) {
+  if (current_layer == GAMING_LAYER) {
     writePin(LED_CAPS_LOCK_PIN, LED_PIN_ON_STATE);
   } else {
     writePin(LED_CAPS_LOCK_PIN, !LED_PIN_ON_STATE);
@@ -309,7 +308,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC,   KC_F1,   KC_F2,    KC_F3,    KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9,    KC_F10,   KC_F11,   KC_F12,             KC_PSCR,   XXXXXXX,  CK_STUCK,
     KC_GRV,   KC_1,    KC_2,     KC_3,     KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9,     KC_0,     KC_MINS,  KC_EQL,   KC_BSPC,  XXXXXXX,   KC_HOME,  KC_PGUP,
     KC_TAB,   KC_Q,    KC_W,     KC_E,     KC_R,     KC_T,     CC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,            KC_DEL,    KC_END,   KC_PGDN,
-    FN_MOUSE, FN_LEFT, KC_S,     CC_D,     CC_F,     KC_G,     CC_H,     KC_J,     KC_K,     KC_L,     FN_RIGHT, KC_QUOT,  KC_NUHS,  KC_ENT,
+    FN_MOUSE, FN_LEFT, KC_S,     CC_D,     CC_F,     KC_G,     CC_H,     KC_J,     KC_K,     KC_L,     FN_RIGHT, KC_QUOT,  CC_NUHS,  KC_ENT,
     KC_LSFT,  KC_NUBS, CC_Z,     CC_X,     CC_C,     CC_V,     KC_B,     KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,            KC_RSFT,             KC_UP,
     KC_LCTL,  KC_LGUI, KC_LALT,                                FN_SPACE,                               KC_RALT,  KC_RGUI,  FN_KCR ,   KC_RCTL,  KC_LEFT,   KC_DOWN,  KC_RGHT),
 
@@ -353,7 +352,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,            XXXXXXX,
     XXXXXXX,  XXXXXXX,  XXXXXXX,                                KC_BTN1,                                XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX),
 
-[GAMING] = LAYOUT_tkl_iso(
+[GAMING_LAYER] = LAYOUT_tkl_iso(
     KC_ESC,   KC_F1,    KC_F2,    KC_F3,    KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9,    KC_F10,   KC_F11,   KC_F12,             KC_PSCR,   XXXXXXX,  FN_BACK,
     KC_GRV,   KC_1,     KC_2,     KC_3,     KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9,     KC_0,     KC_MINS,  KC_EQL,   KC_BSPC,  KC_INS,    KC_HOME,  KC_PGUP,
     KC_TAB,   KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,     KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,            KC_DEL,    KC_END,   KC_PGDN,
