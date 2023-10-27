@@ -15,6 +15,7 @@
  */
 
 #include QMK_KEYBOARD_H
+#include "print.h"
 static uint8_t current_layer = 0;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -113,6 +114,9 @@ bool tap_or_hold(uint16_t keycode_tap, uint16_t keycode_hold, keyrecord_t *recor
 
 // Handles key presses
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+  #ifdef CONSOLE_ENABLE
+     uprintf("KL: kc: 0x%04X, col: %2u, row: %2u, pressed: %u, time: %5u, int: %u, count: %u\n", keycode, record->event.key.col, record->event.key.row, record->event.pressed, record->event.time, record->tap.interrupted, record->tap.count);
+  #endif
   switch (keycode) {
     // --------------------------- CTRL + <KEY> on Hold -----------------------------------------------------
     case CC_C:
