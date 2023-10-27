@@ -48,7 +48,7 @@ static uint8_t current_layer = 0;
 
 // TH_<KEYNAME>: [T]ap-[H]old, for keys that have a tap and a hold action
 // Tap/hold logic works only on basic keycodes (https://docs.qmk.fm/#/keycodes_basic)
-#define TH_HM_END LT(0, KC_F24)
+// #define TH_HM_END LT(0, KC_F24)
 
 // clang-format off
 enum layers{
@@ -59,6 +59,12 @@ enum layers{
   KEYCHRON_FUNCTION,
   MOUSE,
   GAMING_LAYER
+};
+
+enum tap_dance {
+  TD_LEFT,
+  TD_RIGHT,
+  TD_HM_END
 };
 
 enum custom_keycodes {
@@ -73,6 +79,13 @@ enum custom_keycodes {
   MACRO_8,              // ctrl + shift + plus (jump to and select word (target mode))
   MACRO_9,              // ctrl + alt + shift + plus (jump to declaration)
   CK_STUCK,             // Remove all modifiers (shift, alt, win, ctrl) to prevent stuck modifiers
+};
+
+// Tap Dance definitions
+tap_dance_action_t tap_dance_actions[] ={
+  [TD_LEFT] = ACTION_TAP_DANCE_DOUBLE(KC_LEFT, LCTL(KC_LEFT)),
+  [TD_RIGHT] = ACTION_TAP_DANCE_DOUBLE(KC_RIGHT, LCTL(KC_RIGHT)),
+  [TD_HM_END] = ACTION_TAP_DANCE_DOUBLE(KC_HOME, KC_END),
 };
 
 uint32_t change_color_red_callback(uint32_t trigger_time, void *cb_arg) {
@@ -138,8 +151,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     case CC_NUHS:
       return controlify_on_hold(KC_NUHS, record);
     // --------------------------- Tap / Hold -----------------------------------------------------
-    case LT(0, KC_F24):
-      return tap_or_hold(KC_HOME, KC_END, record);
+    // case LT(0, KC_F24):
+    //   return tap_or_hold(KC_HOME, KC_END, record);
     // --------------------------- Specials -----------------------------------------------------
     case (CK_STUCK):
       del_mods(MOD_MASK_CSAG); //remove all modifiers to prevent stuck modifiers
@@ -294,15 +307,30 @@ void keyboard_post_init_user(void) {
   //defer_exec(ms * 3, change_led_effect_heatmap_callback, NULL);
 
   rgb_matrix_mode(RGB_MATRIX_CYCLE_LEFT_RIGHT);
-  defer_exec(1000, change_led_effect_heatmap_callback, NULL);
+  defer_exec(5000, change_led_effect_heatmap_callback, NULL);
 }
 
 // Set tapping term per key (https://docs.qmk.fm/#/tap_hold?id=tapping-term)
-// A key counts as HOLD if held longer than TAPPING_TERM, as TAP if shorter
+// A key counts as HOLD if held longer than TAPPING_TERM, as TAP/DOUBLE TAP if shorter
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
+  #ifdef CONSOLE_ENABLE
+     uprintf("kc: 0x%04X\n", keycode);
+  #endif
   switch (keycode) {
     case FN_LEFT:
+    case FN_RIGHT:
+    case CC_Z:
+    case CC_Y:
+    case CC_D:
+    case CC_V:
+    case CC_X:
+        // Make all but copy (KC_C) a bit slower
         return TAPPING_TERM + 100;
+    // TD_LEFT/TD_RIGHT. Got this numbers with the uprintf() above
+    case 22272:
+    case 22273:
+        // Make it faster to prevent accidental use when double/triple... tapping left/right
+        return TAPPING_TERM - 15;
     default:
         return TAPPING_TERM;
   }
@@ -334,12 +362,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______,  _______,  _______,                                KC_P0  ,                                _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX),
 
 [RIGHT_HOLD_FUNCTION] = LAYOUT_tkl_iso(
-    KC_ESC ,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  KC_ESC   ,  KC_TAB ,  KC_UP  ,  XXXXXXX,  KC_PGUP,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  TH_HM_END,  KC_LEFT,  KC_DOWN,  KC_RIGHT, KC_PGDN,  XXXXXXX,  KC_LCTL,  KC_LALT,  KC_LGUI,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX,
-    _______,  XXXXXXX  ,  XXXXXXX,  XXXXXXX,  KC_DEL ,  KC_BSPC,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            _______,            XXXXXXX,
-    _______,  _______  ,  _______,                                KC_LSFT,                                _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX),
+    XXXXXXX,  XXXXXXX      ,  XXXXXXX    ,  XXXXXXX,  XXXXXXX     ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
+    KC_ESC ,  XXXXXXX      ,  XXXXXXX    ,  XXXXXXX,  XXXXXXX     ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  KC_ESC       ,  KC_TAB     ,  KC_UP  ,  XXXXXXX     ,  KC_PGUP,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  TD(TD_HM_END),  TD(TD_LEFT),  KC_DOWN,  TD(TD_RIGHT),  KC_PGDN,  XXXXXXX,  KC_LCTL,  KC_LALT,  KC_LGUI,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX,
+    _______,  XXXXXXX      ,  XXXXXXX    ,  XXXXXXX,  KC_DEL      ,  KC_BSPC,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            _______,            XXXXXXX,
+    _______,  _______      ,  _______    ,                                     KC_LSFT,                                _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX),
 
 [KEYCHRON_FUNCTION] = LAYOUT_tkl_iso(
     _______,  KC_BRID,  KC_BRIU,  KC_TASK,  KC_FILE,  RGB_VAD,  RGB_VAI,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,  KC_VOLU,            _______,  _______,  FN_GAME,
