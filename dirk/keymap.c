@@ -1,70 +1,121 @@
-/* Copyright 2021 @ Keychron (https://www.keychron.com)
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
+// clang-format off
 #include QMK_KEYBOARD_H
 #include "print.h"
 static uint8_t current_layer = 0;
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- *  You can use _______ in place for KC_TRANS (transparent)   *
- *  Or you can use XXXXXXX for KC_NO (NOOP)                  *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+typedef struct {
+    bool is_press_action;
+    int  state;
+} tap;
+
+typedef struct {
+    uint16_t kc;
+} tap_dance_single_t;
+
+typedef struct {
+    uint16_t kc;
+    uint8_t layer;
+} tap_dance_key_layer_pair_t;
+
+typedef struct {
+    uint16_t kc1;
+    uint16_t kc2;
+    uint8_t layer;
+} tap_dance_keys_layer_pair_t;
+
+enum {
+    SINGLE_TAP        = 1,
+    SINGLE_HOLD       = 2,
+    DOUBLE_TAP        = 3,
+    DOUBLE_HOLD       = 4,
+    DOUBLE_SINGLE_TAP = 5, // send two single taps
+    TRIPLE_TAP        = 6,
+    TRIPLE_HOLD       = 7
+};
+
+int  cur_dance(tap_dance_state_t *state);
+void tap_dance_finished_key_shift_ctrl(tap_dance_state_t *state, void *user_data);
+void tap_dance_reset_key_shift_ctrl(tap_dance_state_t *state, void *user_data);
+void tap_dance_finished_key_shift_mo(tap_dance_state_t *state, void *user_data);
+void tap_dance_reset_key_shift_mo(tap_dance_state_t *state, void *user_data);
+void tap_dance_finished_keys_shift_mo(tap_dance_state_t *state, void *user_data);
+void tap_dance_reset_keys_shift_mo(tap_dance_state_t *state, void *user_data);
+
+
+#define ACTION_TAP_DANCE_SHIFT(kc) \
+    { .fn = {tap_dance_pair_on_each_tap, tap_dance_pair_finished, tap_dance_pair_reset}, .user_data = (void *)&((tap_dance_pair_t){kc, LSFT(kc)}), }
+#define ACTION_TAP_DANCE_SHIFT_CTRL(kc) \
+    { .fn = {NULL, tap_dance_finished_key_shift_ctrl, tap_dance_reset_key_shift_ctrl}, .user_data = (void *)&((tap_dance_single_t){kc}), }
+#define ACTION_TAP_DANCE_SHIFT_MO(kc, layer) \
+    { .fn = {NULL, tap_dance_finished_key_shift_mo, tap_dance_reset_key_shift_mo}, .user_data = (void *)&((tap_dance_key_layer_pair_t){kc, layer}), }
+#define ACTION_TAP_DANCE_KC1_KC2_MO(kc1, kc2, layer) \
+    { .fn = {NULL, tap_dance_finished_keys_shift_mo, tap_dance_reset_keys_shift_mo}, .user_data = (void *)&((tap_dance_keys_layer_pair_t){kc1, kc2, layer}), }
+#define ACTION_TAP_DANCE_CW_LAYER_TOGGLE(layer) \
+    { .fn = {NULL, tap_dance_cw_layer_finished, NULL}, .user_data = (void *)&((tap_dance_dual_role_t){KC_NO, layer, layer_invert}), }
 
 // DEFINITIONS: Shorten long "key"-names
 // Layer switches
 #define FN_BACK TO(DEFAULT)
 #define FN_GAME TO(GAMING_LAYER)
 #define FN_KCR MO(KEYCHRON_FUNCTION)
-#define FN_LEFT LT(LEFT_HOLD_FUNCTION, KC_A)
-#define FN_RIGHT LT(RIGHT_HOLD_FUNCTION, KC_SCLN)
-#define FN_SPACE LT(SPACE_FUNCTION, KC_SPC)
-#define FN_MOUSE TG(MOUSE)
+#define FN_MOUSE TG(MOUSE_LAYER)
 
 // CC_<KEYNAME>: [C]trl-[C]ode, for keys that have ctrl activated on hold
 // LT() is used to switch layers on hold, but used on layer 0 it does not switch a layer, but provides tap/hold logic
 // see: https://docs.qmk.fm/#/mod_tap?id=changing-hold-function
-#define CC_C LT(0, KC_C)
-#define CC_D LT(0, KC_D)
-#define CC_F LT(0, KC_F)
-#define CC_H LT(0, KC_H)
-#define CC_V LT(0, KC_V)
-#define CC_X LT(0, KC_X)
-#define CC_Y LT(0, KC_Y)
-#define CC_Z LT(0, KC_Z)
 #define CC_NUHS LT(0, KC_NUHS)
 
 // TH_<KEYNAME>: [T]ap-[H]old, for keys that have a tap and a hold action
 // Tap/hold logic works only on basic keycodes (https://docs.qmk.fm/#/keycodes_basic)
 // #define TH_HM_END LT(0, KC_F24)
 
-// clang-format off
 enum layers{
   DEFAULT,
   SPACE_FUNCTION,
   LEFT_HOLD_FUNCTION,
   RIGHT_HOLD_FUNCTION,
   KEYCHRON_FUNCTION,
-  MOUSE,
+  MOUSE_LAYER,
   GAMING_LAYER
 };
 
 enum tap_dance {
   TD_LEFT,
   TD_RIGHT,
-  TD_HM_END
+  TD_HM_END,
+  TD_Q,
+  TD_W,
+  TD_E,
+  TD_R,
+  TD_T,
+  TD_U,
+  TD_I,
+  TD_O,
+  TD_P,
+  TD_LBRC, //Ü
+  TD_S,
+  TD_G,
+  TD_J,
+  TD_K,
+  TD_L,
+  TD_QUOT, //Ä
+  TD_B,
+  TD_N,
+  TD_M,
+  TD_COMM,
+  TD_DOT,
+  TD_C,
+  TD_D,
+  TD_F,
+  TD_H,
+  TD_X,
+  TD_Y,
+  TD_Z,
+  TD_V,
+  TD_A,
+  TD_SCLN,
+  TD_SPACE,
 };
 
 enum custom_keycodes {
@@ -83,9 +134,41 @@ enum custom_keycodes {
 
 // Tap Dance definitions
 tap_dance_action_t tap_dance_actions[] ={
-  [TD_LEFT] = ACTION_TAP_DANCE_DOUBLE(KC_LEFT, LCTL(KC_LEFT)),
-  [TD_RIGHT] = ACTION_TAP_DANCE_DOUBLE(KC_RIGHT, LCTL(KC_RIGHT)),
-  [TD_HM_END] = ACTION_TAP_DANCE_DOUBLE(KC_HOME, KC_END),
+  [TD_LEFT]     = ACTION_TAP_DANCE_DOUBLE(KC_LEFT, LCTL(KC_LEFT)),
+  [TD_RIGHT]    = ACTION_TAP_DANCE_DOUBLE(KC_RIGHT, LCTL(KC_RIGHT)),
+  [TD_HM_END]   = ACTION_TAP_DANCE_DOUBLE(KC_HOME, KC_END),
+  [TD_Q]        = ACTION_TAP_DANCE_SHIFT(KC_Q),
+  [TD_W]        = ACTION_TAP_DANCE_SHIFT(KC_W),
+  [TD_E]        = ACTION_TAP_DANCE_SHIFT(KC_E),
+  [TD_R]        = ACTION_TAP_DANCE_SHIFT(KC_R),
+  [TD_T]        = ACTION_TAP_DANCE_SHIFT(KC_T),
+  [TD_U]        = ACTION_TAP_DANCE_SHIFT(KC_U),
+  [TD_I]        = ACTION_TAP_DANCE_SHIFT(KC_I),
+  [TD_O]        = ACTION_TAP_DANCE_SHIFT(KC_O),
+  [TD_P]        = ACTION_TAP_DANCE_SHIFT(KC_P),
+  [TD_LBRC]     = ACTION_TAP_DANCE_SHIFT(KC_LBRC),
+  [TD_S]        = ACTION_TAP_DANCE_SHIFT(KC_S),
+  [TD_G]        = ACTION_TAP_DANCE_SHIFT(KC_G),
+  [TD_J]        = ACTION_TAP_DANCE_SHIFT(KC_J),
+  [TD_K]        = ACTION_TAP_DANCE_SHIFT(KC_K),
+  [TD_L]        = ACTION_TAP_DANCE_SHIFT(KC_L),
+  [TD_QUOT]     = ACTION_TAP_DANCE_SHIFT(KC_QUOT),
+  [TD_B]        = ACTION_TAP_DANCE_SHIFT(KC_B),
+  [TD_N]        = ACTION_TAP_DANCE_SHIFT(KC_N),
+  [TD_M]        = ACTION_TAP_DANCE_SHIFT(KC_M),
+  [TD_COMM]     = ACTION_TAP_DANCE_SHIFT(KC_COMM),
+  [TD_DOT]      = ACTION_TAP_DANCE_SHIFT(KC_DOT),
+  [TD_X]        = ACTION_TAP_DANCE_SHIFT_CTRL(KC_X),
+  [TD_Y]        = ACTION_TAP_DANCE_SHIFT_CTRL(KC_Y),
+  [TD_Z]        = ACTION_TAP_DANCE_SHIFT_CTRL(KC_Z),
+  [TD_D]        = ACTION_TAP_DANCE_SHIFT_CTRL(KC_D),
+  [TD_F]        = ACTION_TAP_DANCE_SHIFT_CTRL(KC_F),
+  [TD_H]        = ACTION_TAP_DANCE_SHIFT_CTRL(KC_H),
+  [TD_C]        = ACTION_TAP_DANCE_SHIFT_CTRL(KC_C),
+  [TD_V]        = ACTION_TAP_DANCE_SHIFT_CTRL(KC_V),
+  [TD_A]        = ACTION_TAP_DANCE_SHIFT_MO(KC_A, LEFT_HOLD_FUNCTION),
+  [TD_SCLN]     = ACTION_TAP_DANCE_SHIFT_MO(KC_SCLN, RIGHT_HOLD_FUNCTION),
+  [TD_SPACE]    = ACTION_TAP_DANCE_KC1_KC2_MO(KC_SPACE, KC_DOT, SPACE_FUNCTION),
 };
 
 uint32_t change_color_red_callback(uint32_t trigger_time, void *cb_arg) {
@@ -124,34 +207,18 @@ bool tap_or_hold(uint16_t keycode_tap, uint16_t keycode_hold, keyrecord_t *recor
     return false;
 }
 
-
 // Handles key presses
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   #ifdef CONSOLE_ENABLE
-     uprintf("KL: kc: 0x%04X, col: %2u, row: %2u, pressed: %u, time: %5u, int: %u, count: %u\n", keycode, record->event.key.col, record->event.key.row, record->event.pressed, record->event.time, record->tap.interrupted, record->tap.count);
+    uprintf("KL: kc: 0x%04X, col: %2u, row: %2u, pressed: %u, time: %5u, int: %u, count: %u\n", keycode, record->event.key.col, record->event.key.row, record->event.pressed, record->event.time, record->tap.interrupted, record->tap.count);
   #endif
   switch (keycode) {
     // --------------------------- CTRL + <KEY> on Hold -----------------------------------------------------
-    case CC_C:
-      return controlify_on_hold(KC_C, record);
-    case CC_D:
-      return controlify_on_hold(KC_D, record);
-    case CC_F:
-      return controlify_on_hold(KC_F, record);
-    case CC_H:
-      return controlify_on_hold(KC_H, record);
-    case CC_V:
-      return controlify_on_hold(KC_V, record);
-    case CC_X:
-      return controlify_on_hold(KC_X, record);
-    case CC_Y:
-      return controlify_on_hold(KC_Y, record);
-    case CC_Z:
-      return controlify_on_hold(KC_Z, record);
+
     case CC_NUHS:
       return controlify_on_hold(KC_NUHS, record);
     // --------------------------- Tap / Hold -----------------------------------------------------
-    // case LT(0, KC_F24):
+    // case LT(0, KC_???):
     //   return tap_or_hold(KC_HOME, KC_END, record);
     // --------------------------- Specials -----------------------------------------------------
     case (CK_STUCK):
@@ -236,7 +303,7 @@ layer_state_t layer_state_set_user(layer_state_t state) {
       rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
       rgb_matrix_sethsv(HSV_TURQUOISE);
       break;
-    case MOUSE:
+    case MOUSE_LAYER:
       rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
       rgb_matrix_sethsv(HSV_RED);
       break;
@@ -314,36 +381,40 @@ void keyboard_post_init_user(void) {
 // A key counts as HOLD if held longer than TAPPING_TERM, as TAP/DOUBLE TAP if shorter
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
   #ifdef CONSOLE_ENABLE
-     uprintf("kc: 0x%04X\n", keycode);
+    uprintf("tapping term kc: 0x%04X, keycode:  %u\n", keycode, keycode);
   #endif
-  switch (keycode) {
-    case FN_LEFT:
-    case FN_RIGHT:
-    case CC_Z:
-    case CC_Y:
-    case CC_D:
-    case CC_V:
-    case CC_X:
-        // Make all but copy (KC_C) a bit slower
-        return TAPPING_TERM + 100;
-    // TD_LEFT/TD_RIGHT. Got this numbers with the uprintf() above
-    case 22272:
-    case 22273:
-        // Make it faster to prevent accidental use when double/triple... tapping left/right
-        return TAPPING_TERM - 15;
-    default:
-        return TAPPING_TERM;
-  }
+
+  return TAPPING_TERM - 20;
+  // switch (keycode) {
+  //   // case FN_LEFT:
+  //   // case FN_RIGHT:
+  //       // Make time until a press is registered take a bit longer for all but copy (KC_C)
+  //       // return TAPPING_TERM + 100;
+  //   // Got this numbers with the uprintf() above
+  //   case 22272: // TD_LEFT
+  //   case 22273: // TD_RIGHT
+  //   case 22275 ... 22350: // TD_Q
+
+  //       // Make it faster to prevent accidental use when double/triple... tapping the actual key vs the double tap function
+  //       return TAPPING_TERM - 15;
+  //   default:
+  //       return TAPPING_TERM;
+  // }
 }
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ *  You can use _______ in place for KC_TRANS (transparent)   *
+ *  Or you can use XXXXXXX for KC_NO (NOOP)                  *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [DEFAULT] = LAYOUT_tkl_iso(
-    KC_ESC,   KC_F1,   KC_F2,    KC_F3,    KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9,    KC_F10,   KC_F11,   KC_F12,             KC_PSCR,   XXXXXXX,  CK_STUCK,
-    KC_GRV,   KC_1,    KC_2,     KC_3,     KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9,     KC_0,     KC_MINS,  KC_EQL,   KC_BSPC,  XXXXXXX,   KC_HOME,  KC_PGUP,
-    KC_TAB,   KC_Q,    KC_W,     KC_E,     KC_R,     KC_T,     CC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,            KC_DEL,    KC_END,   KC_PGDN,
-    FN_MOUSE, FN_LEFT, KC_S,     CC_D,     CC_F,     KC_G,     CC_H,     KC_J,     KC_K,     KC_L,     FN_RIGHT, KC_QUOT,  CC_NUHS,  KC_ENT,
-    KC_LSFT,  KC_NUBS, CC_Z,     CC_X,     CC_C,     CC_V,     KC_B,     KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,            KC_RSFT,             KC_UP,
-    KC_LCTL,  KC_LGUI, KC_LALT,                                FN_SPACE,                               KC_RALT,  KC_RGUI,  FN_KCR ,   KC_RCTL,  KC_LEFT,   KC_DOWN,  KC_RGHT),
+    KC_ESC  , KC_F1,    KC_F2   , KC_F3   , KC_F4   , KC_F5   , KC_F6   , KC_F7,    KC_F8   , KC_F9      , KC_F10     , KC_F11     , KC_F12 ,          KC_PSCR, XXXXXXX,  CK_STUCK,
+    KC_GRV  , KC_1,     KC_2    , KC_3    , KC_4    , KC_5    , KC_6    , KC_7,     KC_8    , KC_9       , KC_0       , KC_MINS    , KC_EQL , KC_BSPC, XXXXXXX, KC_HOME,  KC_PGUP ,
+    KC_TAB  , TD(TD_Q), TD(TD_W), TD(TD_E), TD(TD_R), TD(TD_T), TD(TD_Y), TD(TD_U), TD(TD_I), TD(TD_O)   , TD(TD_P)   , TD(TD_LBRC), KC_RBRC,          KC_DEL , KC_END ,  KC_PGDN ,
+    FN_MOUSE, TD(TD_A), TD(TD_S), TD(TD_D), TD(TD_F), TD(TD_G), TD(TD_H), TD(TD_J), TD(TD_K), TD(TD_L)   , TD(TD_SCLN), TD(TD_QUOT), CC_NUHS, KC_ENT,
+    KC_LSFT , KC_NUBS,  TD(TD_Z), TD(TD_X), TD(TD_C), TD(TD_V), TD(TD_B), TD(TD_N), TD(TD_M), TD(TD_COMM), TD(TD_DOT) , KC_SLSH    ,          KC_RSFT,          KC_UP   ,
+    KC_LCTL , KC_LGUI, KC_LALT,                                TD(TD_SPACE),                               KC_RALT    , KC_RGUI    , FN_KCR , KC_RCTL, KC_LEFT, KC_DOWN ,  KC_RGHT),
 
 [SPACE_FUNCTION] = LAYOUT_tkl_iso(
     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,            KC_P7  ,  KC_P8  ,    KC_P9,
@@ -377,7 +448,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______,  _______,  _______,  _______,  _______,  _______,  BAT_LVL,  NK_TOGG,  _______,  _______,  _______,  _______,            _______,            _______,
     _______,  _______,  _______,                                _______,                                _______,  _______,  _______,  _______,  _______,  _______,  _______),
 
-[MOUSE] = LAYOUT_tkl_iso(
+[MOUSE_LAYER] = LAYOUT_tkl_iso(
     KC_ESC ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  FN_BACK,
     XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
     XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_MS_U,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_WH_U,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
@@ -393,3 +464,132 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_LSFT,  KC_NUBS,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,            KC_RSFT,             KC_UP,
     KC_LCTL,  KC_LGUI,  KC_LALT,                                KC_SPC,                                 KC_RALT,  KC_RGUI,  XXXXXXX,  KC_RCTL,  KC_LEFT,  KC_DOWN,  KC_RGHT)
 };
+
+// Tap Dance code
+
+int cur_dance (tap_dance_state_t *state) {
+  if (state->count == 1) {
+    if (state->interrupted || !state->pressed)  return SINGLE_TAP;
+    //key has not been interrupted, but they key is still held. Means you want to send a 'HOLD'.
+    else return SINGLE_HOLD;
+  }
+  else if (state->count == 2) {
+    /*
+     * DOUBLE_SINGLE_TAP is to distinguish between typing "pepper", and actually wanting a double tap
+     * action when hitting 'pp'. Suggested use case for this return value is when you want to send two
+     * keystrokes of the key, and not the 'double tap' action/macro.
+    */
+    if (state->interrupted) return DOUBLE_SINGLE_TAP;
+    else if (state->pressed) return DOUBLE_HOLD;
+    else return DOUBLE_TAP;
+  }
+  //Assumes no one is trying to type the same letter three times (at least not quickly).
+  //If your tap dance key is 'KC_W', and you want to type "www." quickly - then you will need to add
+  //an exception here to return a 'TRIPLE_SINGLE_TAP', and define that enum just like 'DOUBLE_SINGLE_TAP'
+  if (state->count == 3) {
+    if (state->interrupted || !state->pressed)  return TRIPLE_TAP;
+    else return TRIPLE_HOLD;
+  }
+  else return 8; //magic number. At some point this method will expand to work for more presses
+}
+
+//initialize an instance of 'tap' for the 'x' tap dance.
+static tap xtap_state = {
+  .is_press_action = true,
+  .state = 0
+};
+
+void tap_dance_finished_key_shift_ctrl (tap_dance_state_t *state, void *user_data) {
+  uint16_t kc = ((tap_dance_single_t *)user_data)->kc;
+  xtap_state.state = cur_dance(state);
+  switch (xtap_state.state) {
+    case SINGLE_TAP: register_code(kc); break;
+    case SINGLE_HOLD: register_mods(MOD_BIT(KC_LCTL)); register_code(kc); break;
+    case DOUBLE_TAP: register_mods(MOD_BIT(KC_LSFT)); register_code(kc); break;
+    case DOUBLE_HOLD: register_mods(MOD_BIT(KC_LCTL)); register_code(kc); break;
+    case DOUBLE_SINGLE_TAP: register_code(kc); unregister_code(kc); register_code(kc); break;
+    //Last case is for fast typing. Assuming your key is `f`:
+    //For example, when typing the word `buffer`, and you want to make sure that you send `ff` and not `Esc`.
+    //In order to type `ff` when typing fast, the next character will have to be hit within the `TAPPING_TERM`, which by default is 200ms.
+  }
+}
+
+void tap_dance_reset_key_shift_ctrl(tap_dance_state_t *state, void *user_data) {
+  uint16_t kc = ((tap_dance_single_t *)user_data)->kc;
+  switch (xtap_state.state) {
+    case SINGLE_TAP: unregister_code(kc); break;
+    case SINGLE_HOLD: unregister_mods(MOD_BIT(KC_LCTL)); unregister_code(kc); break;
+    case DOUBLE_TAP: unregister_mods(MOD_BIT(KC_LSFT)); unregister_code(kc); break;
+    case DOUBLE_HOLD: unregister_mods(MOD_BIT(KC_LCTL)); unregister_code(kc); break;
+    case DOUBLE_SINGLE_TAP: unregister_code(kc); break;
+  }
+  xtap_state.state = 0;
+}
+
+void tap_dance_finished_key_shift_mo (tap_dance_state_t *state, void *user_data) {
+  tap_dance_key_layer_pair_t *pair = (tap_dance_key_layer_pair_t *)user_data;
+  uint16_t kc = pair->kc;
+  uint8_t layer = pair->layer;
+
+  xtap_state.state = cur_dance(state);
+  switch (xtap_state.state) {
+    case SINGLE_TAP: register_code(kc); break;
+    case SINGLE_HOLD: layer_on(layer); break;
+    case DOUBLE_TAP: register_mods(MOD_BIT(KC_LSFT)); register_code(kc); break;
+    case DOUBLE_HOLD: layer_on(layer); break;
+    case DOUBLE_SINGLE_TAP: register_code(kc); unregister_code(kc); register_code(kc); break;
+    //Last case is for fast typing. Assuming your key is `f`:
+    //For example, when typing the word `buffer`, and you want to make sure that you send `ff` and not `Esc`.
+    //In order to type `ff` when typing fast, the next character will have to be hit within the `TAPPING_TERM`, which by default is 200ms.
+  }
+}
+
+void tap_dance_reset_key_shift_mo(tap_dance_state_t *state, void *user_data) {
+  tap_dance_key_layer_pair_t *pair = (tap_dance_key_layer_pair_t *)user_data;
+  uint16_t kc = pair->kc;
+  uint8_t layer = pair->layer;
+
+  switch (xtap_state.state) {
+    case SINGLE_TAP: unregister_code(kc); break;
+    case SINGLE_HOLD: layer_off(layer); break;
+    case DOUBLE_TAP: unregister_mods(MOD_BIT(KC_LSFT)); unregister_code(kc); break;
+    case DOUBLE_HOLD: layer_off(layer); break;
+    case DOUBLE_SINGLE_TAP: unregister_code(kc); break;
+  }
+  xtap_state.state = 0;
+}
+
+void tap_dance_finished_keys_shift_mo (tap_dance_state_t *state, void *user_data) {
+  tap_dance_keys_layer_pair_t *pair = (tap_dance_keys_layer_pair_t *)user_data;
+  uint16_t kc1 = pair->kc1;
+  uint16_t kc2 = pair->kc2;
+  uint8_t layer = pair->layer;
+
+  xtap_state.state = cur_dance(state);
+  switch (xtap_state.state) {
+    case SINGLE_TAP: register_code(kc1); break;
+    case SINGLE_HOLD: layer_on(layer); break;
+    case DOUBLE_TAP: register_code(kc2); break;
+    case DOUBLE_HOLD: layer_on(layer); break;
+    case DOUBLE_SINGLE_TAP: register_code(kc1); unregister_code(kc1); register_code(kc1); break;
+    //Last case is for fast typing. Assuming your key is `f`:
+    //For example, when typing the word `buffer`, and you want to make sure that you send `ff` and not `Esc`.
+    //In order to type `ff` when typing fast, the next character will have to be hit within the `TAPPING_TERM`, which by default is 200ms.
+  }
+}
+
+void tap_dance_reset_keys_shift_mo(tap_dance_state_t *state, void *user_data) {
+  tap_dance_keys_layer_pair_t *pair = (tap_dance_keys_layer_pair_t *)user_data;
+  uint16_t kc1 = pair->kc1;
+  uint16_t kc2 = pair->kc2;
+  uint8_t layer = pair->layer;
+
+  switch (xtap_state.state) {
+    case SINGLE_TAP: unregister_code(kc1); break;
+    case SINGLE_HOLD: layer_off(layer); break;
+    case DOUBLE_TAP: unregister_code(kc2); break;
+    case DOUBLE_HOLD: layer_off(layer); break;
+    case DOUBLE_SINGLE_TAP: unregister_code(kc1); break;
+  }
+  xtap_state.state = 0;
+}
