@@ -83,6 +83,19 @@ enum custom_keycodes {
   CK_STUCK,             // Remove all modifiers (shift, alt, win, ctrl) to prevent stuck modifiers
 };
 
+// When new combos are declared, COMBO_COUNT in config.h must be adjusted to the new number!
+const uint16_t PROGMEM combo_backspace[] = {KC_I, KC_O, COMBO_END};
+const uint16_t PROGMEM combo_del[] = {KC_W, KC_E, COMBO_END};
+const uint16_t PROGMEM combo_esc[] = {KC_Q, KC_W, COMBO_END};
+const uint16_t PROGMEM combo_tab[] = {KC_E, KC_R, COMBO_END};
+
+combo_t key_combos[COMBO_COUNT] = {
+  COMBO(combo_backspace, KC_BSPC),
+  COMBO(combo_del, KC_DEL),
+  COMBO(combo_esc, KC_ESC),
+  COMBO(combo_tab, KC_TAB),
+};
+
 // Tap Dance definitions
 tap_dance_action_t tap_dance_actions[] ={
   [TD_LEFT] = ACTION_TAP_DANCE_DOUBLE(KC_LEFT, LCTL(KC_LEFT)),
@@ -332,7 +345,7 @@ uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
     case 22272:
     case 22273:
         // Make it faster to prevent accidental use when double/triple... tapping left/right
-        return TAPPING_TERM - 15;
+        return TAPPING_TERM - 25;
     default:
         return TAPPING_TERM;
   }

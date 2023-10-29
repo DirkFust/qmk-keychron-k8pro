@@ -9,3 +9,5 @@
 
 // Tap / Hold settings https://docs.qmk.fm/#/tap_hold?id=tapping-term
 #define TAPPING_TERM_PER_KEY
+
+#define COMBO_COUNT 4
