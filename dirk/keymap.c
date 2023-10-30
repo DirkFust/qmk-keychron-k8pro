@@ -53,6 +53,15 @@ enum tap_dance {
   TD_SLSH,   // hyphen/underscore
   TD_F3,     // for next/previous in searches
   TD_TAB,    // indent and deindent
+  TD_1,      // 1 / !
+  TD_2,      // 2 / "
+  TD_3,      // 3 / §
+  TD_4,      // 4 / $
+  TD_5,      // 5 / %
+  TD_6,      // 6 / &
+  TD_7,      // 7 / /
+  TD_0,      // 0 / =
+  TD_MINS,   // ß / ? / backslash
 };
 
 enum custom_keycodes {
@@ -97,13 +106,22 @@ tap_dance_action_t tap_dance_actions[] ={
   [TD_SLSH]   = ACTION_TAP_DANCE_SHIFT(KC_SLSH),
   [TD_F3]     = ACTION_TAP_DANCE_SHIFT(KC_F3),
   [TD_TAB]    = ACTION_TAP_DANCE_SHIFT(KC_TAB),
+  [TD_1]      = ACTION_TAP_DANCE_SHIFT(KC_1),
+  [TD_2]      = ACTION_TAP_DANCE_SHIFT(KC_2),
+  [TD_3]      = ACTION_TAP_DANCE_SHIFT(KC_3),
+  [TD_4]      = ACTION_TAP_DANCE_SHIFT(KC_4),
+  [TD_5]      = ACTION_TAP_DANCE_SHIFT(KC_5),
+  [TD_6]      = ACTION_TAP_DANCE_SHIFT(KC_6),
+  [TD_7]      = ACTION_TAP_DANCE_SHIFT(KC_7),
+  [TD_0]      = ACTION_TAP_DANCE_SHIFT(KC_0),
+  [TD_MINS]   = ACTION_TAP_DANCE_SHIFT_ALTGR(KC_MINS), // ß, ?, backslash
 };
 
 // Handles key presses
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-  #ifdef CONSOLE_ENABLE
-    uprintf("process_record_user(): KL: kc: 0x%04X, keycode: %u, col: %2u, row: %2u, pressed: %u, time: %5u, int: %u, count: %u\n", keycode, keycode, record->event.key.col, record->event.key.row, record->event.pressed, record->event.time, record->tap.interrupted, record->tap.count);
-  #endif
+  // #ifdef CONSOLE_ENABLE
+  //   uprintf("process_record_user(): KL: kc: 0x%04X, keycode: %u, col: %2u, row: %2u, pressed: %u, time: %5u, int: %u, count: %u\n", keycode, keycode, record->event.key.col, record->event.key.row, record->event.pressed, record->event.time, record->tap.interrupted, record->tap.count);
+  // #endif
   switch (keycode) {
     // --------------------------- CTRL + <KEY> on Hold -----------------------------------------------------
     case CC_C:
@@ -244,17 +262,17 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 
 // Feature Caps Words, see https://docs.qmk.fm/#/feature_caps_word
 bool caps_word_press_user(uint16_t keycode) {
-  #ifdef CONSOLE_ENABLE
-    uprintf("caps_word_press_user(): kc: 0x%04X, keycoode: %u\n", keycode, keycode);
-  #endif
+  // #ifdef CONSOLE_ENABLE
+  //   uprintf("caps_word_press_user(): kc: 0x%04X, keycoode: %u\n", keycode, keycode);
+  // #endif
   switch (keycode) {
     // Keycodes that continue Caps Word, with shift applied.
     case KC_A ... KC_Z:
     case KC_MINS:
-    case KC_LBRC: // ü from german keyboard layout
-    case KC_SCLN: // ö from german keyboard layout
-    case KC_QUOT: // ä from german keyboard layout
-    case 22278: // TD_SLSH, -_ on german keyboard layout
+    case KC_LBRC:     // ü from german keyboard layout
+    case KC_SCLN:     // ö from german keyboard layout
+    case KC_QUOT:     // ä from german keyboard layout
+    case TD(TD_SLSH): // -_ on german keyboard layout
       add_weak_mods(MOD_BIT(KC_LSFT));  // Apply shift to next key.
       return true;
 
@@ -298,9 +316,9 @@ void keyboard_post_init_user(void) {
 // Set tapping term per key (https://docs.qmk.fm/#/tap_hold?id=tapping-term)
 // A key counts as HOLD if held longer than TAPPING_TERM, as TAP/DOUBLE TAP if shorter
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
-  #ifdef CONSOLE_ENABLE
-    uprintf("get_tapping_term(): kc: 0x%04X, keycoode: %u\n", keycode, keycode);
-  #endif
+  // #ifdef CONSOLE_ENABLE
+  //   uprintf("get_tapping_term(): kc: 0x%04X, keycoode: %u\n", keycode, keycode);
+  // #endif
   switch (keycode) {
     case FN_LEFT:
     case FN_RIGHT:
@@ -310,10 +328,9 @@ uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
     case CC_V:
     case CC_X:
         // Make all holds but copy (KC_C) slower
-        return TAPPING_TERM * 1.5;
-    // TD_LEFT/TD_RIGHT. Got this numbers with the uprintf() above
-    case 22272:
-    case 22273:
+        return TAPPING_TERM * 1.25;
+    case TD(TD_LEFT):
+    case TD(TD_RIGHT):
         // Make it faster to prevent accidental use when double/triple... tapping left/right
         return TAPPING_TERM - 25;
     default:
@@ -329,12 +346,12 @@ uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [DEFAULT] = LAYOUT_tkl_iso(
-    KC_ESC,      KC_F1,   KC_F2,    TD(TD_F3), KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9      , KC_F10    , KC_F11     , KC_F12 ,          KC_PSCR, XXXXXXX, CK_STUCK,
-    KC_GRV,      KC_1,    KC_2,     KC_3     , KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9       , KC_0      , KC_MINS    , KC_EQL , KC_BSPC, XXXXXXX, KC_HOME, KC_PGUP,
-    TD(TD_TAB),  KC_Q,    KC_W,     KC_E     , KC_R,     KC_T,     CC_Y,     KC_U,     KC_I,     KC_O       , KC_P      , KC_LBRC    , KC_RBRC,          KC_DEL,  KC_END , KC_PGDN,
-    TH_CW_MOUSE, FN_LEFT, KC_S,     CC_D     , CC_F,     KC_G,     CC_H,     KC_J,     KC_K,     KC_L       , FN_RIGHT  , KC_QUOT    , CC_NUHS, KC_ENT ,
-    KC_LSFT,     KC_NUBS, CC_Z,     CC_X     , CC_C,     CC_V,     KC_B,     KC_N,     KC_M,     TD(TD_COMM), TD(TD_DOT), TD(TD_SLSH), KC_RSFT,                   KC_UP  ,
-    KC_LCTL,     KC_LGUI, KC_LALT,                                 TD(TD_SPACE),                              KC_RALT   , KC_RGUI    , FN_KCR , KC_RCTL, KC_LEFT, KC_DOWN, KC_RGHT),
+    KC_ESC     , KC_F1   , KC_F2   , TD(TD_F3), KC_F4   , KC_F5   , KC_F6   , KC_F7   , KC_F8, KC_F9      , KC_F10    , KC_F11     , KC_F12 ,          KC_PSCR, XXXXXXX, CK_STUCK,
+    KC_GRV     , TD(TD_1), TD(TD_2), TD(TD_3) , TD(TD_4), TD(TD_5), TD(TD_6), TD(TD_7), KC_8 , KC_9       , TD(TD_0)  , TD(TD_MINS), KC_EQL , KC_BSPC, XXXXXXX, KC_HOME, KC_PGUP,
+    TD(TD_TAB) , KC_Q    , KC_W    , KC_E     , KC_R    , KC_T    , CC_Y    , KC_U    , KC_I , KC_O       , KC_P      , KC_LBRC    , KC_RBRC,          KC_DEL , KC_END , KC_PGDN,
+    TH_CW_MOUSE, FN_LEFT , KC_S    , CC_D     , CC_F    , KC_G    , CC_H    , KC_J    , KC_K , KC_L       , FN_RIGHT  , KC_QUOT    , CC_NUHS, KC_ENT ,
+    KC_LSFT    , KC_NUBS , CC_Z    , CC_X     , CC_C    , CC_V    , KC_B    , KC_N    , KC_M , TD(TD_COMM), TD(TD_DOT), TD(TD_SLSH), KC_RSFT,                   KC_UP  ,
+    KC_LCTL    , KC_LGUI , KC_LALT ,                                TD(TD_SPACE),                           KC_RALT,    KC_RGUI    , FN_KCR , KC_RCTL, KC_LEFT, KC_DOWN, KC_RGHT),
 
 [SPACE_FUNCTION] = LAYOUT_tkl_iso(
     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,            KC_P7  ,  KC_P8  ,    KC_P9,
@@ -348,7 +365,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_ESC ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
     XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
     XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_PAST,  KC_PSLS,  XXXXXXX,  XXXXXXX,  KC_P4  ,  KC_P5  ,  KC_P6  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  _______,  XXXXXXX,  KC_PPLS,  KC_PMNS,  XXXXXXX,  XXXXXXX,  KC_P1  ,  KC_P2  ,  KC_P3  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  _______,  XXXXXXX,  KC_PPLS,  KC_PMNS,  KC_DOT ,  KC_COMM,  KC_P1  ,  KC_P2  ,  KC_P3  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
     _______,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_P7  ,  KC_P8  ,  KC_P9  ,  XXXXXXX,            XXXXXXX,            XXXXXXX,
     _______,  _______,  _______,                                KC_P0  ,                                _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX),
 
