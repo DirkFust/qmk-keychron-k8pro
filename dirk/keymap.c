@@ -355,9 +355,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [FN_RIGHT_HOLD_MOVEMENT] = LAYOUT_tkl_iso(
     XXXXXXX,  XXXXXXX      ,  XXXXXXX    ,  XXXXXXX,  XXXXXXX     ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
     KC_ESC ,  XXXXXXX      ,  XXXXXXX    ,  XXXXXXX,  XXXXXXX     ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  KC_ESC       ,  KC_TAB     ,  KC_UP  ,  XXXXXXX     ,  KC_PGUP,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  KC_ESC       ,  TD(TD_TAB) ,  KC_UP  ,  XXXXXXX     ,  KC_PGUP,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
     XXXXXXX,  TD(TD_HM_END),  TD(TD_LEFT),  KC_DOWN,  TD(TD_RIGHT),  KC_PGDN,  XXXXXXX,  KC_LCTL,  KC_LALT,  KC_LGUI,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX,
-    _______,  XXXXXXX      ,  XXXXXXX    ,  XXXXXXX,  KC_DEL      ,  KC_BSPC,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            _______,            XXXXXXX,
+    _______,  XXXXXXX      ,  XXXXXXX    ,  XXXXXXX,  XXXXXXX     ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            _______,            XXXXXXX,
     _______,  _______      ,  _______    ,                                     KC_LSFT,                                _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX),
 
 [KEYCHRON_FUNCTION] = LAYOUT_tkl_iso(
