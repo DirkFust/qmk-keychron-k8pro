@@ -1,52 +1,9 @@
-/* Copyright 2021 @ Keychron (https://www.keychron.com)
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 #include QMK_KEYBOARD_H
 #include "print.h"
+#include "tap_dance.c"
+#include "color_helper.c"
+#include "tap_hold_helper.c"
 static uint8_t current_layer = 0;
-
-typedef struct {
-    bool is_press_action;
-    int  state;
-} tap;
-
-typedef struct {
-    uint16_t kc1;
-    uint16_t kc2;
-    uint8_t  layer;
-} tap_dance_keys_layer_pair_t;
-
-enum {
-    SINGLE_TAP        = 1,
-    SINGLE_HOLD       = 2,
-    DOUBLE_TAP        = 3,
-    DOUBLE_HOLD       = 4,
-    DOUBLE_SINGLE_TAP = 5, // send two single taps
-    TRIPLE_TAP        = 6,
-    TRIPLE_HOLD       = 7
-};
-
-int  cur_dance(tap_dance_state_t *state);
-void tap_dance_finished_keys_shift_mo(tap_dance_state_t *state, void *user_data);
-void tap_dance_reset_keys_shift_mo(tap_dance_state_t *state, void *user_data);
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- *  You can use _______ in place for KC_TRANS (transparent)   *
- *  Or you can use XXXXXXX for KC_NO (NOOP)                  *
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 // DEFINITIONS: Shorten long "key"-names
 // Layer switches
@@ -54,8 +11,8 @@ void tap_dance_reset_keys_shift_mo(tap_dance_state_t *state, void *user_data);
 #define FN_GAME TO(GAMING_LAYER)
 #define FN_MAC TO(MAC_LAYER)
 #define FN_KCR MO(KEYCHRON_FUNCTION)
-#define FN_LEFT LT(LEFT_HOLD_FUNCTION, KC_A)
-#define FN_RIGHT LT(RIGHT_HOLD_FUNCTION, KC_SCLN)
+#define FN_LEFT LT(FN_LEFT_HOLD_NUMBERS, KC_A)
+#define FN_RIGHT LT(FN_RIGHT_HOLD_MOVEMENT, KC_SCLN)
 
 // CC_<KEYNAME>: [C]trl-[C]ode, for keys that have ctrl activated on hold
 // LT() is used to switch layers on hold, but used on layer 0 it does not switch a layer, but provides tap/hold logic
@@ -74,16 +31,12 @@ void tap_dance_reset_keys_shift_mo(tap_dance_state_t *state, void *user_data);
 // Tap/hold logic works only on basic keycodes (https://docs.qmk.fm/#/keycodes_basic)
 #define TH_CW_MOUSE LT(0, KC_F24)
 
-// Tap Dance definitions
-#define ACTION_TAP_DANCE_KC1_KC2_MO(kc1, kc2, layer) \
-    { .fn = {NULL, tap_dance_finished_keys_shift_mo, tap_dance_reset_keys_shift_mo}, .user_data = (void *)&((tap_dance_keys_layer_pair_t){kc1, kc2, layer}), }
-
 // clang-format off
 enum layers{
   DEFAULT,
   SPACE_FUNCTION,
-  LEFT_HOLD_FUNCTION,
-  RIGHT_HOLD_FUNCTION,
+  FN_LEFT_HOLD_NUMBERS,
+  FN_RIGHT_HOLD_MOVEMENT,
   KEYCHRON_FUNCTION,
   MOUSE_LAYER,
   GAMING_LAYER,
@@ -91,10 +44,15 @@ enum layers{
 };
 
 enum tap_dance {
-  TD_LEFT,
-  TD_RIGHT,
-  TD_HM_END,
-  TD_SPACE,
+  TD_LEFT,   // left one char/one word
+  TD_RIGHT,  // right one char/one word
+  TD_HM_END, // Home/End
+  TD_SPACE,  // Space, Dot and layerchange
+  TD_COMM,   //comma/semicolon
+  TD_DOT,    // dot/colon
+  TD_SLSH,   // hyphen/underscore
+  TD_F3,     // for next/previous in searches
+  TD_TAB,    // indent and deindent
 };
 
 enum custom_keycodes {
@@ -111,17 +69,21 @@ enum custom_keycodes {
   CK_STUCK,             // Remove all modifiers (shift, alt, win, ctrl) to prevent stuck modifiers
 };
 
-// When new combos are declared, COMBO_COUNT in config.h must be adjusted to the new number!
+// COMBOS: See https://docs.qmk.fm/#/feature_combo
+// !! When new combos are declared, COMBO_COUNT in config.h must be adjusted to the new number! !!
+// Combos are declared on the keycodes of the base layer (see #define COMBO_ONLY_FROM_LAYER 0 in config.h), so other layers work with them, even if the keys are set to NO_OP
 const uint16_t PROGMEM combo_backspace[] = {KC_I, KC_O, COMBO_END};
 const uint16_t PROGMEM combo_del[] = {KC_W, KC_E, COMBO_END};
 const uint16_t PROGMEM combo_esc[] = {KC_Q, KC_W, COMBO_END};
 const uint16_t PROGMEM combo_tab[] = {KC_E, KC_R, COMBO_END};
+const uint16_t PROGMEM combo_enter[] = {KC_S, KC_L, COMBO_END};
 
 combo_t key_combos[COMBO_COUNT] = {
   COMBO(combo_backspace, KC_BSPC),
   COMBO(combo_del, KC_DEL),
   COMBO(combo_esc, KC_ESC),
   COMBO(combo_tab, KC_TAB),
+  COMBO(combo_enter, KC_ENT),
 };
 
 // Tap Dance definitions
@@ -130,48 +92,17 @@ tap_dance_action_t tap_dance_actions[] ={
   [TD_RIGHT]  = ACTION_TAP_DANCE_DOUBLE(KC_RIGHT, LCTL(KC_RIGHT)),
   [TD_HM_END] = ACTION_TAP_DANCE_DOUBLE(KC_HOME, KC_END),
   [TD_SPACE]  = ACTION_TAP_DANCE_KC1_KC2_MO(KC_SPACE, KC_DOT, SPACE_FUNCTION),
+  [TD_COMM]   = ACTION_TAP_DANCE_SHIFT(KC_COMM),
+  [TD_DOT]    = ACTION_TAP_DANCE_SHIFT(KC_DOT),
+  [TD_SLSH]   = ACTION_TAP_DANCE_SHIFT(KC_SLSH),
+  [TD_F3]     = ACTION_TAP_DANCE_SHIFT(KC_F3),
+  [TD_TAB]    = ACTION_TAP_DANCE_SHIFT(KC_TAB),
 };
-
-uint32_t change_color_red_callback(uint32_t trigger_time, void *cb_arg) {
-    rgb_matrix_sethsv_noeeprom(HSV_RED);
-    return 0;
-}
-
-uint32_t change_color_green_callback(uint32_t trigger_time, void *cb_arg) {
-    rgb_matrix_sethsv_noeeprom(HSV_GREEN);
-    return 0;
-}
-
-uint32_t change_led_effect_heatmap_callback(uint32_t trigger_time, void *cb_arg) {
-    rgb_matrix_mode(RGB_MATRIX_TYPING_HEATMAP);
-    return 0;
-}
-
-// Used in process_record_user() to provide ctrl+<key> on hold, <key> on tap
-// Tap/hold logic works only on basic keycodes (https://docs.qmk.fm/#/keycodes_basic)
-bool controlify_on_hold(uint16_t keycode, keyrecord_t *record) {
-  if (!record->tap.count && record->event.pressed) {
-      tap_code16(C(keycode)); // Intercept hold function to send Ctrl+<KEYCODE>. Other modifiers (Shift, Alt) are applied
-    return false;
-  }
-  return true; // Return true for normal processing of tap keycode
-}
-
-// Used in process_record_user() to provide <key1> on tap, <key2> on hold.
-// Tap/hold logic works only on basic keycodes (https://docs.qmk.fm/#/keycodes_basic)
-bool tap_or_hold(uint16_t keycode_tap, uint16_t keycode_hold, keyrecord_t *record) {
-    if (record->tap.count && record->event.pressed) {
-        tap_code16(keycode_tap); // Intercept tap function to send [keycode_tap]
-    } else if (record->event.pressed) {
-        tap_code16(keycode_hold); // Intercept hold function to send [keycode_hold]
-    }
-    return false;
-}
 
 // Handles key presses
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   #ifdef CONSOLE_ENABLE
-    uprintf("KL: kc: 0x%04X, col: %2u, row: %2u, pressed: %u, time: %5u, int: %u, count: %u\n", keycode, record->event.key.col, record->event.key.row, record->event.pressed, record->event.time, record->tap.interrupted, record->tap.count);
+    uprintf("process_record_user(): KL: kc: 0x%04X, keycode: %u, col: %2u, row: %2u, pressed: %u, time: %5u, int: %u, count: %u\n", keycode, keycode, record->event.key.col, record->event.key.row, record->event.pressed, record->event.time, record->tap.interrupted, record->tap.count);
   #endif
   switch (keycode) {
     // --------------------------- CTRL + <KEY> on Hold -----------------------------------------------------
@@ -268,18 +199,18 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 layer_state_t layer_state_set_user(layer_state_t state) {
   uint8_t new_layer = get_highest_layer(state);
 
-  if (current_layer == RIGHT_HOLD_FUNCTION) {
-    // if layer changed and the previous layer was RIGHT_HOLD_FUNCTION...
-    clear_mods(); //...remove all modifiers to prevent stuck modifiers from RIGHT_HOLD_FUNCTION layer
+  if (current_layer == FN_RIGHT_HOLD_MOVEMENT) {
+    // if layer changed and the previous layer was FN_RIGHT_HOLD_MOVEMENT...
+    clear_mods(); //...remove all modifiers to prevent stuck modifiers from FN_RIGHT_HOLD_MOVEMENT layer
   }
   current_layer = new_layer;
 
   switch (new_layer) {
-    case RIGHT_HOLD_FUNCTION:
+    case FN_RIGHT_HOLD_MOVEMENT:
       rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
       rgb_matrix_sethsv(HSV_GREEN);
       break;
-    case LEFT_HOLD_FUNCTION:
+    case FN_LEFT_HOLD_NUMBERS:
       rgb_matrix_mode(RGB_MATRIX_SOLID_COLOR);
       rgb_matrix_sethsv(HSV_BLUE);
       break;
@@ -313,14 +244,17 @@ layer_state_t layer_state_set_user(layer_state_t state) {
 
 // Feature Caps Words, see https://docs.qmk.fm/#/feature_caps_word
 bool caps_word_press_user(uint16_t keycode) {
+  #ifdef CONSOLE_ENABLE
+    uprintf("caps_word_press_user(): kc: 0x%04X, keycoode: %u\n", keycode, keycode);
+  #endif
   switch (keycode) {
     // Keycodes that continue Caps Word, with shift applied.
     case KC_A ... KC_Z:
     case KC_MINS:
-    case KC_SLSH: // -_ from german keyboard layout
     case KC_LBRC: // ü from german keyboard layout
     case KC_SCLN: // ö from german keyboard layout
     case KC_QUOT: // ä from german keyboard layout
+    case 22278: // TD_SLSH, -_ on german keyboard layout
       add_weak_mods(MOD_BIT(KC_LSFT));  // Apply shift to next key.
       return true;
 
@@ -365,7 +299,7 @@ void keyboard_post_init_user(void) {
 // A key counts as HOLD if held longer than TAPPING_TERM, as TAP/DOUBLE TAP if shorter
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
   #ifdef CONSOLE_ENABLE
-    uprintf("kc: 0x%04X, keycoode: %u\n", keycode, keycode);
+    uprintf("get_tapping_term(): kc: 0x%04X, keycoode: %u\n", keycode, keycode);
   #endif
   switch (keycode) {
     case FN_LEFT:
@@ -376,7 +310,7 @@ uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
     case CC_V:
     case CC_X:
         // Make all holds but copy (KC_C) slower
-        return TAPPING_TERM * 2;
+        return TAPPING_TERM * 1.5;
     // TD_LEFT/TD_RIGHT. Got this numbers with the uprintf() above
     case 22272:
     case 22273:
@@ -387,14 +321,20 @@ uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
   }
 }
 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ *  You can use _______ in place for KC_TRANS (transparent)   *
+ *  Or you can use XXXXXXX for KC_NO (NOOP)                  *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 [DEFAULT] = LAYOUT_tkl_iso(
-    KC_ESC,      KC_F1,   KC_F2,    KC_F3,    KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9,    KC_F10,   KC_F11,   KC_F12,             KC_PSCR,   XXXXXXX,  CK_STUCK,
-    KC_GRV,      KC_1,    KC_2,     KC_3,     KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9,     KC_0,     KC_MINS,  KC_EQL,   KC_BSPC,  XXXXXXX,   KC_HOME,  KC_PGUP,
-    KC_TAB,      KC_Q,    KC_W,     KC_E,     KC_R,     KC_T,     CC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,            KC_DEL,    KC_END,   KC_PGDN,
-    TH_CW_MOUSE, FN_LEFT, KC_S,     CC_D,     CC_F,     KC_G,     CC_H,     KC_J,     KC_K,     KC_L,     FN_RIGHT, KC_QUOT,  CC_NUHS,  KC_ENT,
-    KC_LSFT,     KC_NUBS, CC_Z,     CC_X,     CC_C,     CC_V,     KC_B,     KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,            KC_RSFT,             KC_UP,
-    KC_LCTL,     KC_LGUI, KC_LALT,                                TD(TD_SPACE),                           KC_RALT,  KC_RGUI,  FN_KCR ,   KC_RCTL,  KC_LEFT,   KC_DOWN,  KC_RGHT),
+    KC_ESC,      KC_F1,   KC_F2,    TD(TD_F3), KC_F4,    KC_F5,    KC_F6,    KC_F7,    KC_F8,    KC_F9      , KC_F10    , KC_F11     , KC_F12 ,          KC_PSCR, XXXXXXX, CK_STUCK,
+    KC_GRV,      KC_1,    KC_2,     KC_3     , KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9       , KC_0      , KC_MINS    , KC_EQL , KC_BSPC, XXXXXXX, KC_HOME, KC_PGUP,
+    TD(TD_TAB),  KC_Q,    KC_W,     KC_E     , KC_R,     KC_T,     CC_Y,     KC_U,     KC_I,     KC_O       , KC_P      , KC_LBRC    , KC_RBRC,          KC_DEL,  KC_END , KC_PGDN,
+    TH_CW_MOUSE, FN_LEFT, KC_S,     CC_D     , CC_F,     KC_G,     CC_H,     KC_J,     KC_K,     KC_L       , FN_RIGHT  , KC_QUOT    , CC_NUHS, KC_ENT ,
+    KC_LSFT,     KC_NUBS, CC_Z,     CC_X     , CC_C,     CC_V,     KC_B,     KC_N,     KC_M,     TD(TD_COMM), TD(TD_DOT), TD(TD_SLSH), KC_RSFT,                   KC_UP  ,
+    KC_LCTL,     KC_LGUI, KC_LALT,                                 TD(TD_SPACE),                              KC_RALT   , KC_RGUI    , FN_KCR , KC_RCTL, KC_LEFT, KC_DOWN, KC_RGHT),
 
 [SPACE_FUNCTION] = LAYOUT_tkl_iso(
     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,            KC_P7  ,  KC_P8  ,    KC_P9,
@@ -404,7 +344,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,  _______,            _______,            KC_P0  ,
     _______,  _______,  _______,                                _______,                                _______,  _______,  _______,  _______,  _______,  _______,  _______),
 
-[LEFT_HOLD_FUNCTION] = LAYOUT_tkl_iso(
+[FN_LEFT_HOLD_NUMBERS] = LAYOUT_tkl_iso(
     KC_ESC ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
     XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
     XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_PAST,  KC_PSLS,  XXXXXXX,  XXXXXXX,  KC_P4  ,  KC_P5  ,  KC_P6  ,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
@@ -412,7 +352,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     _______,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_P7  ,  KC_P8  ,  KC_P9  ,  XXXXXXX,            XXXXXXX,            XXXXXXX,
     _______,  _______,  _______,                                KC_P0  ,                                _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  XXXXXXX,  XXXXXXX),
 
-[RIGHT_HOLD_FUNCTION] = LAYOUT_tkl_iso(
+[FN_RIGHT_HOLD_MOVEMENT] = LAYOUT_tkl_iso(
     XXXXXXX,  XXXXXXX      ,  XXXXXXX    ,  XXXXXXX,  XXXXXXX     ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
     KC_ESC ,  XXXXXXX      ,  XXXXXXX    ,  XXXXXXX,  XXXXXXX     ,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
     XXXXXXX,  KC_ESC       ,  KC_TAB     ,  KC_UP  ,  XXXXXXX     ,  KC_PGUP,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,            XXXXXXX,  XXXXXXX,  XXXXXXX,
@@ -445,79 +385,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_LCTL,  KC_LGUI,  KC_LALT,                                KC_SPC,                                 KC_RALT,  KC_RGUI,  XXXXXXX,  KC_RCTL,  KC_LEFT,  KC_DOWN,  KC_RGHT),
 
 [MAC_LAYER] = LAYOUT_tkl_iso(
-     KC_ESC,   KC_BRID,  KC_BRIU,  KC_MCTL,  KC_LPAD,  RGB_VAD,  RGB_VAI,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,  KC_VOLU,           KC_SNAP,   KC_SIRI,  FN_BACK,
-     KC_GRV,   KC_1,     KC_2,     KC_3,     KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9,     KC_0,     KC_MINS,  KC_EQL,   KC_BSPC, KC_INS,    KC_HOME,  KC_PGUP,
-     KC_TAB,   KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,     KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,           KC_DEL,    KC_END,   KC_PGDN,
-     KC_CAPS,  KC_A,     KC_S,     KC_D,     KC_F,     KC_G,     KC_H,     KC_J,     KC_K,     KC_L,     KC_SCLN,  KC_QUOT,  KC_NUHS,  KC_ENT,
-     KC_LSFT,  KC_NUBS,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,            KC_RSFT,            KC_UP,
-     KC_LCTL,  KC_LOPTN, KC_LCMMD,                               KC_SPC,                                 KC_RCMMD, KC_ROPTN, _______,  KC_RCTL,  KC_LEFT,  KC_DOWN,  KC_RGHT),
+    KC_ESC,   KC_BRID,  KC_BRIU,  KC_MCTL,  KC_LPAD,  RGB_VAD,  RGB_VAI,  KC_MPRV,  KC_MPLY,  KC_MNXT,  KC_MUTE,  KC_VOLD,  KC_VOLU,           KC_SNAP,   KC_SIRI,  FN_BACK,
+    KC_GRV,   KC_1,     KC_2,     KC_3,     KC_4,     KC_5,     KC_6,     KC_7,     KC_8,     KC_9,     KC_0,     KC_MINS,  KC_EQL,   KC_BSPC, KC_INS,    KC_HOME,  KC_PGUP,
+    KC_TAB,   KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,     KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,     KC_LBRC,  KC_RBRC,           KC_DEL,    KC_END,   KC_PGDN,
+    KC_CAPS,  KC_A,     KC_S,     KC_D,     KC_F,     KC_G,     KC_H,     KC_J,     KC_K,     KC_L,     KC_SCLN,  KC_QUOT,  KC_NUHS,  KC_ENT,
+    KC_LSFT,  KC_NUBS,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,            KC_RSFT,            KC_UP,
+    KC_LCTL,  KC_LOPTN, KC_LCMMD,                               KC_SPC,                                 KC_RCMMD, KC_ROPTN, _______,  KC_RCTL,  KC_LEFT,  KC_DOWN,  KC_RGHT),
 };
-
-// Tap Dance code
-int cur_dance (tap_dance_state_t *state) {
-  if (state->count == 1) {
-    if (state->interrupted || !state->pressed)  return SINGLE_TAP;
-    //key has not been interrupted, but they key is still held. Means you want to send a 'HOLD'.
-    else return SINGLE_HOLD;
-  }
-  else if (state->count == 2) {
-    /*
-     * DOUBLE_SINGLE_TAP is to distinguish between typing "pepper", and actually wanting a double tap
-     * action when hitting 'pp'. Suggested use case for this return value is when you want to send two
-     * keystrokes of the key, and not the 'double tap' action/macro.
-    */
-    if (state->interrupted) return DOUBLE_SINGLE_TAP;
-    else if (state->pressed) return DOUBLE_HOLD;
-    else return DOUBLE_TAP;
-  }
-  //Assumes no one is trying to type the same letter three times (at least not quickly).
-  //If your tap dance key is 'KC_W', and you want to type "www." quickly - then you will need to add
-  //an exception here to return a 'TRIPLE_SINGLE_TAP', and define that enum just like 'DOUBLE_SINGLE_TAP'
-  if (state->count == 3) {
-    if (state->interrupted || !state->pressed)  return TRIPLE_TAP;
-    else return TRIPLE_HOLD;
-  }
-  else return 8; //magic number. At some point this method will expand to work for more presses
-}
-
-//initialize an instance of 'tap' for the 'x' tap dance.
-static tap xtap_state = {
-  .is_press_action = true,
-  .state = 0
-};
-
-
-void tap_dance_finished_keys_shift_mo (tap_dance_state_t *state, void *user_data) {
-  tap_dance_keys_layer_pair_t *pair = (tap_dance_keys_layer_pair_t *)user_data;
-  uint16_t kc1 = pair->kc1;
-  uint16_t kc2 = pair->kc2;
-  uint8_t layer = pair->layer;
-
-  xtap_state.state = cur_dance(state);
-  switch (xtap_state.state) {
-    case SINGLE_TAP: register_code(kc1); break;
-    case SINGLE_HOLD: layer_on(layer); break;
-    case DOUBLE_TAP: register_code(kc2); break;
-    case DOUBLE_HOLD: register_code(kc1); break;
-    case DOUBLE_SINGLE_TAP: register_code(kc1); unregister_code(kc1); register_code(kc1); break;
-    //Last case is for fast typing. Assuming your key is `f`:
-    //For example, when typing the word `buffer`, and you want to make sure that you send `ff` and not `Esc`.
-    //In order to type `ff` when typing fast, the next character will have to be hit within the `TAPPING_TERM`, which by default is 200ms.
-  }
-}
-
-void tap_dance_reset_keys_shift_mo(tap_dance_state_t *state, void *user_data) {
-  tap_dance_keys_layer_pair_t *pair = (tap_dance_keys_layer_pair_t *)user_data;
-  uint16_t kc1 = pair->kc1;
-  uint16_t kc2 = pair->kc2;
-  uint8_t layer = pair->layer;
-
-  switch (xtap_state.state) {
-    case SINGLE_TAP: unregister_code(kc1); break;
-    case SINGLE_HOLD: layer_off(layer); break;
-    case DOUBLE_TAP: unregister_code(kc2); break;
-    case DOUBLE_HOLD: unregister_code(kc1); break;
-    case DOUBLE_SINGLE_TAP: unregister_code(kc1); break;
-  }
-  xtap_state.state = 0;
-}
